@@ -1,0 +1,56 @@
+name: Build Lite FFmpeg
+on: workflow_dispatch
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: emscripten/emsdk:3.1.40
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+        with:
+          repository: ffmpegwasm/ffmpeg.wasm-core
+          
+      - name: Configure and Build
+        run: |
+          # Configure for Lite Build (MP4, WebM, MOV, AVI, MKV)
+          emconfigure ./configure \
+            --target-os=none \
+            --arch=x86_32 \
+            --enable-cross-compile \
+            --disable-x86asm \
+            --disable-inline-asm \
+            --disable-stripping \
+            --disable-programs \
+            --disable-doc \
+            --disable-debug \
+            --disable-runtime-cpudetect \
+            --disable-autodetect \
+            --disable-everything \
+            --enable-protocol=file \
+            --enable-demuxer=mov,mp4,m4a,avi,matroska,webm \
+            --enable-muxer=mp4,avi,matroska,webm,null \
+            --enable-gpl \
+            --enable-libx264 \
+            --enable-decoder=h264 \
+            --enable-encoder=libx264 \
+            --enable-parser=h264 \
+            --enable-libvpx \
+            --enable-decoder=vp9 \
+            --enable-encoder=libvpx_vp9 \
+            --enable-parser=vp9 \
+            --enable-decoder=aac,vorbis,opus \
+            --enable-encoder=aac,libvorbis,libopus \
+            --enable-parser=aac,vorbis,opus \
+            --enable-filter=scale,crop,overlay \
+            --extra-cflags="-O3 -s USE_PTHREADS=1" \
+            --extra-cxxflags="-O3 -s USE_PTHREADS=1" \
+            --extra-ldflags="-O3 -s USE_PTHREADS=1 -s INITIAL_MEMORY=33554432"
+          
+          # Build it
+          emmake make -j4
+
+      - name: Upload Result
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-lite-wasm
+          path: wasm/dist/ffmpeg-core.wasm
