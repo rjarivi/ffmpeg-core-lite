@@ -1,4 +1,4 @@
-name: Build Lite FFmpeg (Fixed)
+name: Build Lite FFmpeg (Final Fix)
 on: workflow_dispatch
 
 jobs:
@@ -13,10 +13,10 @@ jobs:
 
       - name: Build x264 (H.264 Video Encoder)
         run: |
+          # We need x264 for MP4 video. This is the only external thing we will build.
           cd /tmp
           git clone --branch stable --depth 1 https://code.videolan.org/videolan/x264.git
           cd x264
-          # Configure x264 for WebAssembly
           emconfigure ./configure \
             --prefix=/tmp/ffmpeg_build \
             --host=i686-gnu \
@@ -25,7 +25,6 @@ jobs:
             --disable-asm \
             --extra-cflags="-s USE_PTHREADS=1"
           
-          # Compile and Install x264 to a temporary folder
           emmake make -j4
           emmake make install
 
@@ -36,12 +35,11 @@ jobs:
 
       - name: Configure and Build FFmpeg-Core
         run: |
-          # 1. We must point FFmpeg to the x264 we just built
           export PKG_CONFIG_PATH=/tmp/ffmpeg_build/lib/pkgconfig
           
-          # 2. Configure FFmpeg (Lite Version)
-          # We enabled libx264 (for MP4 encoding) but disabled libvpx (WebM) to prevent errors.
-          # WebM will still work for Reading (Decoding), just not Writing (Encoding).
+          # CHANGES: 
+          # 1. Switched audio encoders to 'aac,vorbis,opus' (Native) instead of 'libvorbis,libopus' (External).
+          # 2. This removes the missing dependency error.
           
           emconfigure ./configure \
             --target-os=none \
@@ -67,14 +65,13 @@ jobs:
             --enable-decoder=vp8,vp9 \
             --enable-parser=vp8,vp9 \
             --enable-decoder=aac,vorbis,opus,mp3 \
-            --enable-encoder=aac,libvorbis,libopus \
+            --enable-encoder=aac,vorbis,opus \
             --enable-parser=aac,vorbis,opus \
             --enable-filter=scale,crop,overlay,aresample \
             --extra-cflags="-O3 -s USE_PTHREADS=1 -I/tmp/ffmpeg_build/include" \
             --extra-cxxflags="-O3 -s USE_PTHREADS=1" \
             --extra-ldflags="-O3 -s USE_PTHREADS=1 -L/tmp/ffmpeg_build/lib -s INITIAL_MEMORY=33554432"
 
-          # 3. Build the final .wasm file
           emmake make -j4
 
       - name: Upload Result
