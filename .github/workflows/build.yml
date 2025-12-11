@@ -1,4 +1,4 @@
-name: Build Lite FFmpeg (Mirror Fix)
+name: Build Lite FFmpeg (Smart Fix)
 on: workflow_dispatch
 
 jobs:
@@ -14,7 +14,7 @@ jobs:
       - name: Build x264 (Video Encoder)
         run: |
           cd /tmp
-          # FIX: We use the GitHub mirror instead of videolan.org to prevent network errors
+          # Using the mirror to prevent network timeouts
           git clone --branch stable --depth 1 https://github.com/mirror/x264.git
           cd x264
           emconfigure ./configure \
@@ -35,7 +35,7 @@ jobs:
 
       - name: Configure and Build FFmpeg
         run: |
-          # 1. Configure FFmpeg
+          # Configure
           emconfigure ./configure \
             --target-os=none \
             --arch=x86_32 \
@@ -73,14 +73,28 @@ jobs:
             --extra-ldflags="-O3 -s USE_PTHREADS=1 -L/tmp/ffmpeg_build/lib -s INITIAL_MEMORY=33554432" \
             --extra-libs="-lx264 -lpthread -lm"
 
-          # 2. Compile
+          # Build
           emmake make -j4
 
-          # 3. FIX: Find and Rename the files so Upload works
-          # FFmpeg usually outputs a file named 'ffmpeg' (the JS) and 'ffmpeg.wasm'
-          # We rename them to what your app expects.
-          mv ffmpeg ffmpeg-core.js
-          mv ffmpeg.wasm ffmpeg-core.wasm
+      - name: Locate and Rename Output
+        run: |
+          echo "Listing build directory to find the file:"
+          ls -lh
+          
+          # Logic: If 'ffmpeg' exists, use it. If not, look for 'ffmpeg_g'.
+          if [ -f "ffmpeg" ]; then
+            echo "Found 'ffmpeg' binary."
+            mv ffmpeg ffmpeg-core.js
+            mv ffmpeg.wasm ffmpeg-core.wasm
+          elif [ -f "ffmpeg_g" ]; then
+            echo "Found 'ffmpeg_g' binary. Renaming..."
+            mv ffmpeg_g ffmpeg-core.js
+            mv ffmpeg_g.wasm ffmpeg-core.wasm
+          else
+            echo "ERROR: Could not find ffmpeg or ffmpeg_g! Listing all files:"
+            find . -maxdepth 2
+            exit 1
+          fi
 
       - name: Upload Result
         uses: actions/upload-artifact@v4
