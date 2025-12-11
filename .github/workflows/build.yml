@@ -48,7 +48,7 @@ jobs:
             --disable-x86asm \
             --disable-inline-asm \
             --disable-stripping \
-            --disable-programs \
+            --enable-ffmpeg \
             --disable-doc \
             --disable-debug \
             --disable-runtime-cpudetect \
