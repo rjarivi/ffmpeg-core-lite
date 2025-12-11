@@ -1,4 +1,4 @@
-name: Build Lite FFmpeg (Unbreakable)
+name: Build Lite FFmpeg (Mirror Fix)
 on: workflow_dispatch
 
 jobs:
@@ -14,9 +14,9 @@ jobs:
       - name: Build x264 (Video Encoder)
         run: |
           cd /tmp
-          git clone --branch stable --depth 1 https://code.videolan.org/videolan/x264.git
+          # FIX: We use the GitHub mirror instead of videolan.org to prevent network errors
+          git clone --branch stable --depth 1 https://github.com/mirror/x264.git
           cd x264
-          # Force x264 to build as a static library for Emscripten
           emconfigure ./configure \
             --prefix=/tmp/ffmpeg_build \
             --host=i686-gnu \
@@ -35,7 +35,7 @@ jobs:
 
       - name: Configure and Build FFmpeg
         run: |
-          # We manually set the compilers to prevent the 'gcc' error
+          # 1. Configure FFmpeg
           emconfigure ./configure \
             --target-os=none \
             --arch=x86_32 \
@@ -73,11 +73,19 @@ jobs:
             --extra-ldflags="-O3 -s USE_PTHREADS=1 -L/tmp/ffmpeg_build/lib -s INITIAL_MEMORY=33554432" \
             --extra-libs="-lx264 -lpthread -lm"
 
-          # Compile the final WASM file
+          # 2. Compile
           emmake make -j4
+
+          # 3. FIX: Find and Rename the files so Upload works
+          # FFmpeg usually outputs a file named 'ffmpeg' (the JS) and 'ffmpeg.wasm'
+          # We rename them to what your app expects.
+          mv ffmpeg ffmpeg-core.js
+          mv ffmpeg.wasm ffmpeg-core.wasm
 
       - name: Upload Result
         uses: actions/upload-artifact@v4
         with:
-          name: ffmpeg-lite-wasm
-          path: wasm/dist/ffmpeg-core.wasm
+          name: ffmpeg-lite-files
+          path: |
+            ffmpeg-core.js
+            ffmpeg-core.wasm
