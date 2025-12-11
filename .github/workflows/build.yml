@@ -1,4 +1,4 @@
-name: Build Lite FFmpeg (Smart Fix)
+name: Build Lite FFmpeg (Final Fix)
 on: workflow_dispatch
 
 jobs:
@@ -78,21 +78,33 @@ jobs:
 
       - name: Locate and Rename Output
         run: |
-          echo "Listing build directory to find the file:"
-          ls -lh
+          echo "Debug: Listing all files to confirm location..."
+          find . -maxdepth 2 -name "ffmpeg*"
           
-          # Logic: If 'ffmpeg' exists, use it. If not, look for 'ffmpeg_g'.
+          # 1. Handle the Executable (JS)
           if [ -f "ffmpeg" ]; then
-            echo "Found 'ffmpeg' binary."
+            echo "Found 'ffmpeg' (JS) binary."
             mv ffmpeg ffmpeg-core.js
-            mv ffmpeg.wasm ffmpeg-core.wasm
           elif [ -f "ffmpeg_g" ]; then
-            echo "Found 'ffmpeg_g' binary. Renaming..."
+            echo "Found 'ffmpeg_g' (JS) binary."
             mv ffmpeg_g ffmpeg-core.js
+          else
+            echo "ERROR: Could not find ffmpeg JS file!"
+            exit 1
+          fi
+
+          # 2. Handle the WASM file
+          # The build often leaves the WASM file named 'ffmpeg_g.wasm' even if it renamed the JS to 'ffmpeg'
+          if [ -f "ffmpeg.wasm" ]; then
+            echo "Found 'ffmpeg.wasm'."
+            mv ffmpeg.wasm ffmpeg-core.wasm
+          elif [ -f "ffmpeg_g.wasm" ]; then
+            echo "Found 'ffmpeg_g.wasm' (fallback)."
             mv ffmpeg_g.wasm ffmpeg-core.wasm
           else
-            echo "ERROR: Could not find ffmpeg or ffmpeg_g! Listing all files:"
-            find . -maxdepth 2
+            echo "ERROR: Could not find ffmpeg.wasm or ffmpeg_g.wasm!"
+            # Don't fail immediately, check if the JS file *is* the WASM (unlikely but possible in some configs)
+            ls -lh ffmpeg-core.js
             exit 1
           fi
 
